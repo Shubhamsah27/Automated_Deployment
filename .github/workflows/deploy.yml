@@ -53,14 +53,14 @@ jobs:
         with:
           context: .
           load: true
-          tags: ghcr.io/${{ github.repository_owner }}/pulseapi:sha-${{ github.sha }}
+          tags: ghcr.io/shubhamsah27/pulseapi:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ghcr.io/${{ github.repository_owner }}/pulseapi:sha-${{ github.sha }}
+          image-ref: ghcr.io/shubhamsah27/pulseapi:sha-${{ github.sha }}
           format: 'table'
           exit-code: '1'
           ignore-unfixed: true
@@ -72,8 +72,8 @@ jobs:
           context: .
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/pulseapi:latest
-            ghcr.io/${{ github.repository_owner }}/pulseapi:sha-${{ github.sha }}
+            ghcr.io/shubhamsah27/pulseapi:latest
+            ghcr.io/shubhamsah27/pulseapi:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
