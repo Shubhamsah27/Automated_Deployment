@@ -16,15 +16,15 @@ The pipeline is entirely automated using **GitHub Actions**. Here is what happen
 ```mermaid
 graph TD
     A[Developer Pushes Code] -->|GitHub Actions| B(Test Job: Jest)
-    B -->|Passes| C{Build & Scan Job}
+    B -->|Passes| C{Build and Scan Job}
     B -->|Fails| X[Halt Pipeline]
     
     C -->|Builds| D[Docker Image]
     D -->|Scans| E[Trivy Vulnerability Scanner]
-    E -->|No Critical Vulns| F[Push to GitHub Container Registry]
+    E -->|No Critical Vulns| F[Push to GHCR]
     E -->|Vulnerabilities Found| X
     
-    F -->|Tagged: latest & SHA| G[Render Webhook]
+    F -->|Tagged: latest and SHA| G[Render Webhook]
     G --> H[Render Pulls New Image]
     H --> I{Render Health Check}
     
