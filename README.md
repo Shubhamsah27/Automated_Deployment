@@ -1,6 +1,6 @@
 # ZeroDeploy API 🚀
 
-[![Deploy to Render](https://github.com/Shubhamsah27/zerodeployapi/actions/workflows/deploy.yml/badge.svg)](https://github.com/Shubhamsah27/zerodeployapi/actions/workflows/deploy.yml)
+[![Deploy to Render](https://github.com/Shubhamsah27/Automated_Deployment/actions/workflows/deploy.yml/badge.svg)](https://github.com/Shubhamsah27/Automated_Deployment/actions/workflows/deploy.yml)
 [![Live Status](https://img.shields.io/badge/Live-Render-success)](https://pulseapi-zu03.onrender.com/)
 
 A demonstration of a fully automated, production-grade CI/CD pipeline built around a Node.js API. Every push to `main` securely tests, builds, scans, and deploys the application with zero downtime.
@@ -56,8 +56,8 @@ Watch the automated pipeline successfully test, build, scan, and deploy:
 
 1. **Clone the repo:**
    ```bash
-   git clone https://github.com/Shubhamsah27/zerodeployapi.git
-   cd zerodeployapi
+   git clone https://github.com/Shubhamsah27/Automated_Deployment.git
+   cd Automated_Deployment
    ```
 
 2. **Install dependencies:**
