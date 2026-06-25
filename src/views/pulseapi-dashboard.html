@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PulseAPI — Live Status</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg-base:#0a0f0d;
+    --bg-surface:#111815;
+    --bg-surface-2:#161f1a;
+    --border:#1f2b25;
+    --border-bright:#324539;
+    --grid-line: rgba(77,255,176,0.05);
+    --pulse:#4dffb0;
+    --pulse-dim:#2c8f63;
+    --pulse-glow: rgba(77,255,176,0.55);
+    --amber:#ffb454;
+    --amber-dim:#8a6230;
+    --text-primary:#e9f2ec;
+    --text-secondary:#8fa39a;
+    --text-tertiary:#566a60;
+    --mono:'JetBrains Mono', monospace;
+    --sans:'Manrope', sans-serif;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background-color:var(--bg-base);
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size:34px 34px;
+    color:var(--text-primary);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:inherit;}
+  button{font-family:inherit;}
+  button:focus-visible, a:focus-visible{
+    outline:2px solid var(--pulse);
+    outline-offset:3px;
+    border-radius:4px;
+  }
+
+  /* ---------- EKG strip ---------- */
+  .ekg-wrap{
+    position:relative;
+    height:64px;
+    overflow:hidden;
+    border-bottom:1px solid var(--border);
+    background:linear-gradient(180deg, #0c1310, #0a0f0d);
+    -webkit-mask-image:linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+    mask-image:linear-gradient(90deg, transparent 0%, black 6%, black 94%, transparent 100%);
+  }
+  .ekg-svg{
+    display:block;
+    width:3200px;
+    height:64px;
+    animation:ekg-scroll 6.6s linear infinite;
+  }
+  .ekg-svg path{
+    fill:none;
+    stroke:var(--pulse);
+    stroke-width:2.6;
+    stroke-linecap:round;
+    filter:drop-shadow(0 0 5px var(--pulse-glow));
+  }
+  @keyframes ekg-scroll{
+    from{ transform:translateX(0); }
+    to{ transform:translateX(-1600px); }
+  }
+  .ekg-cursor{
+    position:absolute;
+    left:78%;
+    top:50%;
+    width:7px;
+    height:7px;
+    margin-top:-3.5px;
+    margin-left:-3.5px;
+    border-radius:50%;
+    background:var(--pulse);
+    box-shadow:0 0 10px 2px var(--pulse-glow);
+    animation:cursor-pulse 0.82s ease-in-out infinite;
+  }
+  @keyframes cursor-pulse{
+    0%,100%{ transform:scale(1); opacity:0.85; }
+    45%{ transform:scale(1.6); opacity:1; }
+  }
+  .ekg-overlay-left, .ekg-overlay-right{
+    position:absolute;
+    top:50%;
+    transform:translateY(-50%);
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.12em;
+    color:var(--text-secondary);
+    display:flex;
+    align-items:center;
+    gap:6px;
+    z-index:2;
+  }
+  .ekg-overlay-left{ left:20px; color:var(--pulse); font-weight:600;}
+  .ekg-overlay-right{ right:20px; }
+  .live-dot{
+    width:6px; height:6px; border-radius:50%;
+    background:var(--pulse);
+    box-shadow:0 0 6px var(--pulse-glow);
+    animation:cursor-pulse 0.82s ease-in-out infinite;
+  }
+
+  /* ---------- layout ---------- */
+  .container{
+    max-width:1080px;
+    margin:0 auto;
+    padding:40px 24px 64px;
+  }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:0.16em;
+    color:var(--pulse-dim);
+    font-weight:600;
+    margin-bottom:14px;
+  }
+  .text-secondary{ color:var(--text-secondary); }
+  .mono{ font-family:var(--mono); }
+
+  /* ---------- topbar ---------- */
+  .topbar{
+    display:flex;
+    align-items:baseline;
+    gap:18px;
+    flex-wrap:wrap;
+    margin-bottom:48px;
+  }
+  .wordmark{
+    font-family:var(--mono);
+    font-size:22px;
+    font-weight:700;
+    letter-spacing:-0.01em;
+  }
+  .wordmark-slash{ color:var(--pulse); }
+  .tagline{
+    font-size:14px;
+    color:var(--text-secondary);
+  }
+  .tagline strong{ color:var(--text-primary); font-weight:700; }
+
+  /* ---------- hero ---------- */
+  .hero{ margin-bottom:56px; }
+  .hero-headline{
+    font-size:clamp(28px, 4vw, 40px);
+    line-height:1.18;
+    font-weight:700;
+    letter-spacing:-0.01em;
+    margin:0 0 18px;
+    max-width:680px;
+  }
+  .hero-meta{
+    display:flex;
+    align-items:center;
+    flex-wrap:wrap;
+    gap:10px;
+    font-size:13.5px;
+    margin-bottom:28px;
+  }
+  .meta-sep{ color:var(--text-tertiary); }
+  .pill{
+    display:inline-flex;
+    align-items:center;
+    padding:4px 10px;
+    border-radius:7px;
+    background:var(--bg-surface-2);
+    border:1px solid var(--border-bright);
+    font-size:12.5px;
+    color:var(--pulse);
+  }
+  .terminal{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:18px 20px 20px;
+    max-width:620px;
+    position:relative;
+  }
+  .terminal-tab{
+    position:absolute;
+    top:-11px;
+    left:18px;
+    background:var(--bg-base);
+    padding:0 8px;
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.1em;
+    color:var(--pulse-dim);
+  }
+  .terminal-body{
+    font-family:var(--mono);
+    font-size:13px;
+    line-height:1.7;
+    margin:6px 0 0;
+    white-space:pre-wrap;
+    word-break:break-word;
+    color:var(--text-secondary);
+  }
+  .t-prompt{ color:var(--pulse); }
+  .t-out{ color:var(--text-primary); display:block; margin-top:4px;}
+
+  /* ---------- bento ---------- */
+  .bento{
+    display:grid;
+    grid-template-columns:repeat(4, 1fr);
+    gap:14px;
+    margin-bottom:56px;
+  }
+  .card{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:20px;
+    transition:border-color .2s ease, transform .2s ease;
+  }
+  .card:hover{
+    border-color:var(--border-bright);
+    transform:translateY(-2px);
+  }
+  .card-uptime{ grid-column:span 2; }
+  .card-label{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.14em;
+    color:var(--text-tertiary);
+    margin-bottom:10px;
+  }
+  .card-value{
+    font-family:var(--mono);
+    font-size:32px;
+    font-weight:700;
+    color:var(--text-primary);
+  }
+  .card-value .unit{
+    font-size:18px;
+    color:var(--text-secondary);
+    font-weight:500;
+    margin-left:2px;
+  }
+  .spark{ width:100%; height:42px; margin:12px 0 8px; display:block; }
+  .card-caption{
+    font-size:12px;
+    color:var(--text-tertiary);
+    margin-top:6px;
+  }
+
+  /* ---------- pipeline ---------- */
+  .pipeline{ margin-bottom:56px; }
+  .section-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .section-head .eyebrow{ margin-bottom:0; }
+  .replay-btn{
+    background:var(--bg-surface-2);
+    border:1px solid var(--border-bright);
+    color:var(--text-secondary);
+    font-family:var(--mono);
+    font-size:11.5px;
+    letter-spacing:0.06em;
+    padding:7px 13px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:color .2s ease, border-color .2s ease;
+  }
+  .replay-btn:hover{ color:var(--pulse); border-color:var(--pulse-dim); }
+
+  .pipe-track{
+    display:flex;
+    align-items:flex-start;
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:26px 18px;
+    overflow-x:auto;
+  }
+  .pipe-node{
+    flex:0 0 auto;
+    width:88px;
+    text-align:center;
+  }
+  .pipe-node-dot{
+    width:13px; height:13px;
+    margin:0 auto 10px;
+    border-radius:50%;
+    background:var(--bg-surface-2);
+    border:2px solid var(--border-bright);
+    transition:background .3s ease, border-color .3s ease, box-shadow .3s ease;
+  }
+  .pipe-node.active .pipe-node-dot{
+    background:var(--pulse);
+    border-color:var(--pulse);
+    box-shadow:0 0 10px var(--pulse-glow);
+  }
+  .pipe-node-label{
+    font-family:var(--mono);
+    font-size:11px;
+    font-weight:600;
+    letter-spacing:0.04em;
+    color:var(--text-tertiary);
+    transition:color .3s ease;
+  }
+  .pipe-node.active .pipe-node-label{ color:var(--text-primary); }
+  .pipe-node-sub{
+    font-size:10.5px;
+    color:var(--text-tertiary);
+    margin-top:3px;
+  }
+  .pipe-line{
+    flex:1 1 auto;
+    height:2px;
+    background:var(--border-bright);
+    margin-top:6px;
+    min-width:24px;
+    position:relative;
+    overflow:hidden;
+  }
+  .pipe-line::after{
+    content:'';
+    position:absolute;
+    inset:0;
+    background:var(--pulse);
+    transform:scaleX(0);
+    transform-origin:left;
+    transition:transform .45s ease;
+    box-shadow:0 0 8px var(--pulse-glow);
+  }
+  .pipe-line.active::after{ transform:scaleX(1); }
+
+  /* ---------- history ---------- */
+  .history{ margin-bottom:48px; }
+  .history-table{
+    background:var(--bg-surface);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    overflow:hidden;
+  }
+  .history-row{
+    display:flex;
+    align-items:center;
+    gap:14px;
+    padding:13px 18px;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  .history-row:last-child{ border-bottom:none; }
+  .history-row.row-enter{ animation:row-in .4s ease; }
+  @keyframes row-in{
+    from{ opacity:0; transform:translateY(-6px); background:var(--bg-surface-2); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  .h-status{
+    width:9px; height:9px; border-radius:50%;
+    flex:0 0 auto;
+    background:var(--pulse);
+  }
+  .h-status.rolled{ background:var(--amber); }
+  .h-sha{
+    font-family:var(--mono);
+    color:var(--pulse);
+    flex:0 0 96px;
+  }
+  .h-msg{
+    flex:1 1 auto;
+    color:var(--text-primary);
+    min-width:0;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .h-badge{
+    font-family:var(--mono);
+    font-size:10.5px;
+    padding:2px 8px;
+    border-radius:6px;
+    background:rgba(77,255,176,0.1);
+    color:var(--pulse);
+    flex:0 0 auto;
+  }
+  .h-badge.rolled{ background:rgba(255,180,84,0.12); color:var(--amber); }
+  .h-time{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-tertiary);
+    flex:0 0 84px;
+    text-align:right;
+  }
+
+  /* ---------- footer ---------- */
+  .footer{ padding-top:8px; border-top:1px solid var(--border); }
+  .stack-row{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:24px 0 14px;
+  }
+  .badge{
+    font-family:var(--mono);
+    font-size:10.5px;
+    letter-spacing:0.06em;
+    color:var(--text-tertiary);
+    border:1px solid var(--border);
+    padding:4px 9px;
+    border-radius:6px;
+  }
+  .footer-line{
+    font-family:var(--mono);
+    font-size:11.5px;
+    color:var(--text-tertiary);
+  }
+
+  /* ---------- responsive ---------- */
+  @media (max-width: 720px){
+    .bento{ grid-template-columns:repeat(2, 1fr); }
+    .card-uptime{ grid-column:span 2; }
+    .h-msg{ white-space:normal; }
+    .h-time{ flex:0 0 70px; }
+  }
+  @media (max-width: 480px){
+    .bento{ grid-template-columns:1fr; }
+    .card-uptime{ grid-column:span 1; }
+    .ekg-overlay-right{ display:none; }
+    .h-sha{ display:none; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .ekg-svg{ animation:none; transform:translateX(-800px); }
+    .ekg-cursor, .live-dot{ animation:none; }
+    .card, .pipe-line::after{ transition:none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="ekg-wrap">
+    <svg class="ekg-svg" viewBox="0 0 3200 64" width="3200" height="64" preserveAspectRatio="none" aria-hidden="true">
+      <defs>
+        <path id="ekg-unit" d="M0,32 L30,32 L40,27 L50,32 L70,32 L78,35 L84,5 L90,47 L96,32 L110,32 L125,24 L140,32 L200,32"/>
+      </defs>
+      <g>
+        <use href="#ekg-unit" x="0"/>
+        <use href="#ekg-unit" x="200"/>
+        <use href="#ekg-unit" x="400"/>
+        <use href="#ekg-unit" x="600"/>
+        <use href="#ekg-unit" x="800"/>
+        <use href="#ekg-unit" x="1000"/>
+        <use href="#ekg-unit" x="1200"/>
+        <use href="#ekg-unit" x="1400"/>
+        <use href="#ekg-unit" x="1600"/>
+        <use href="#ekg-unit" x="1800"/>
+        <use href="#ekg-unit" x="2000"/>
+        <use href="#ekg-unit" x="2200"/>
+        <use href="#ekg-unit" x="2400"/>
+        <use href="#ekg-unit" x="2600"/>
+        <use href="#ekg-unit" x="2800"/>
+        <use href="#ekg-unit" x="3000"/>
+      </g>
+    </svg>
+    <div class="ekg-cursor" aria-hidden="true"></div>
+    <div class="ekg-overlay-left"><span class="live-dot"></span>LIVE</div>
+    <div class="ekg-overlay-right">sin · fly.dev</div>
+  </div>
+
+  <div class="container">
+
+    <header class="topbar">
+      <div class="wordmark">PulseAPI<span class="wordmark-slash">/</span></div>
+      <div class="tagline">Self-reporting deployment service — part of the <strong>ZeroDeploy</strong> pipeline</div>
+    </header>
+
+    <section class="hero">
+      <div class="eyebrow">CURRENT DEPLOYMENT</div>
+      <h1 class="hero-headline">Add automatic rollback on failed health check</h1>
+      <div class="hero-meta">
+        <span class="pill mono">sha-a3f9c2d</span>
+        <span class="meta-sep">·</span>
+        <span class="mono text-secondary">main</span>
+        <span class="meta-sep">·</span>
+        <span class="text-secondary">deployed 14 minutes ago</span>
+        <span class="meta-sep">·</span>
+        <span class="mono text-secondary">v1.4.2</span>
+      </div>
+      <div class="terminal">
+        <div class="terminal-tab">GET /health</div>
+        <pre class="terminal-body"><span class="t-prompt">$</span> curl -s https://zerodeployapi.fly.dev/health
+<span class="t-out">{ "status": "ok", "version": "1.4.2", "uptime_seconds": 1216140 }</span></pre>
+      </div>
+    </section>
+
+    <section class="bento">
+      <div class="card card-uptime">
+        <div class="card-label">UPTIME</div>
+        <div class="card-value">99.97<span class="unit">%</span></div>
+        <svg class="spark" viewBox="0 0 200 50" preserveAspectRatio="none" aria-hidden="true">
+          <path d="M0,12 L20,12 L40,11 L60,12 L80,10 L95,30 L105,34 L115,13 L130,11 L150,12 L170,11 L190,12 L200,11 L200,50 L0,50 Z" fill="#4dffb0" opacity="0.10"/>
+          <polyline points="0,12 20,12 40,11 60,12 80,10 95,30 105,34 115,13 130,11 150,12 170,11 190,12 200,11" fill="none" stroke="#4dffb0" stroke-width="1.6"/>
+          <circle cx="105" cy="34" r="3" fill="#ffb454"/>
+        </svg>
+        <div class="card-caption">14d 6h continuous · one 5-min blip (Mar 12) · 0 unplanned restarts</div>
+      </div>
+      <div class="card">
+        <div class="card-label">REQUESTS SERVED</div>
+        <div class="card-value" data-count="48612">0</div>
+        <div class="card-caption">since last deploy</div>
+      </div>
+      <div class="card">
+        <div class="card-label">DEPLOYS SHIPPED</div>
+        <div class="card-value" id="deployCount" data-count="27">0</div>
+        <div class="card-caption">0 manual · 27 automated</div>
+      </div>
+      <div class="card">
+        <div class="card-label">NEXT HEALTH CHECK</div>
+        <div class="card-value"><span id="hcCount">30</span><span class="unit">s</span></div>
+        <div class="card-caption">/health polled every 30s by Fly.io</div>
+      </div>
+    </section>
+
+    <section class="pipeline">
+      <div class="section-head">
+        <div class="eyebrow">DELIVERY PIPELINE</div>
+        <button class="replay-btn" id="replayBtn" aria-label="Replay the deployment pipeline animation">▶ Replay deploy</button>
+      </div>
+      <div class="pipe-track" id="pipeTrack">
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">PUSH</div><div class="pipe-node-sub">git → main</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">TEST</div><div class="pipe-node-sub">jest + eslint</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">BUILD</div><div class="pipe-node-sub">docker build</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">SCAN</div><div class="pipe-node-sub">trivy hi/crit</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">REGISTRY</div><div class="pipe-node-sub">ghcr.io</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">DEPLOY</div><div class="pipe-node-sub">flyctl deploy</div></div>
+        <div class="pipe-line" data-line></div>
+        <div class="pipe-node" data-node><div class="pipe-node-dot"></div><div class="pipe-node-label">LIVE</div><div class="pipe-node-sub">health 200 ok</div></div>
+      </div>
+    </section>
+
+    <section class="history">
+      <div class="eyebrow">RECENT DEPLOYMENTS</div>
+      <div class="history-table" id="historyTable">
+        <div class="history-row"><div class="h-status"></div><div class="h-sha mono">a3f9c2d</div><div class="h-msg">Add automatic rollback on failed health check</div><div class="h-badge">healthy</div><div class="h-time">14m ago</div></div>
+        <div class="history-row"><div class="h-status"></div><div class="h-sha mono">7e21bb4</div><div class="h-msg">Add Trivy CVE gate to build-scan-push job</div><div class="h-badge">healthy</div><div class="h-time">2h ago</div></div>
+        <div class="history-row"><div class="h-status rolled"></div><div class="h-sha mono">1c44f02</div><div class="h-msg">Fix health check timeout — rolled back</div><div class="h-badge rolled">rolled back</div><div class="h-time">1d ago</div></div>
+        <div class="history-row"><div class="h-status"></div><div class="h-sha mono">9b80a31</div><div class="h-msg">Wire up GitHub Actions deploy.yml</div><div class="h-badge">healthy</div><div class="h-time">1d ago</div></div>
+        <div class="history-row"><div class="h-status"></div><div class="h-sha mono">4f10cd8</div><div class="h-msg">Add Dockerfile — multi-stage, non-root</div><div class="h-badge">healthy</div><div class="h-time">3d ago</div></div>
+        <div class="history-row"><div class="h-status"></div><div class="h-sha mono">0a1e77f</div><div class="h-msg">Initial PulseAPI scaffold</div><div class="h-badge">healthy</div><div class="h-time">5d ago</div></div>
+      </div>
+    </section>
+
+    <footer class="footer">
+      <div class="stack-row">
+        <span class="badge">NODE.JS</span>
+        <span class="badge">DOCKER</span>
+        <span class="badge">GITHUB ACTIONS</span>
+        <span class="badge">GHCR</span>
+        <span class="badge">FLY.IO</span>
+        <span class="badge">TRIVY</span>
+        <span class="badge">UPTIMEROBOT</span>
+      </div>
+      <div class="footer-line">$0.00/month · github.com/yourname/zerodeployapi</div>
+    </footer>
+
+  </div>
+
+<script>
+(function(){
+  // count-up animation for bento stat values
+  function countUp(el, target, duration){
+    var start = 0;
+    var startTime = null;
+    function step(ts){
+      if(!startTime) startTime = ts;
+      var progress = Math.min((ts - startTime) / duration, 1);
+      var eased = 1 - Math.pow(1 - progress, 3);
+      var value = Math.round(eased * target);
+      el.textContent = value.toLocaleString('en-US');
+      if(progress < 1) requestAnimationFrame(step);
+    }
+    requestAnimationFrame(step);
+  }
+  document.querySelectorAll('.card-value[data-count]').forEach(function(el){
+    countUp(el, parseInt(el.getAttribute('data-count'), 10), 1100);
+  });
+
+  // health-check countdown ring
+  var hc = document.getElementById('hcCount');
+  var hcVal = 30;
+  setInterval(function(){
+    hcVal = hcVal <= 0 ? 30 : hcVal - 1;
+    hc.textContent = hcVal;
+  }, 1000);
+
+  // pipeline animation
+  var track = document.getElementById('pipeTrack');
+  var nodes = track.querySelectorAll('[data-node]');
+  var lines = track.querySelectorAll('[data-line]');
+
+  function runPipeline(onDone){
+    nodes.forEach(function(n){ n.classList.remove('active'); });
+    lines.forEach(function(l){ l.classList.remove('active'); });
+    var delay = 0;
+    nodes[0].classList.add('active');
+    lines.forEach(function(line, i){
+      delay += 360;
+      setTimeout(function(){ line.classList.add('active'); }, delay);
+      delay += 360;
+      setTimeout(function(){ nodes[i+1].classList.add('active'); }, delay);
+    });
+    if(onDone) setTimeout(onDone, delay + 300);
+  }
+
+  var deployCountEl = document.getElementById('deployCount');
+  var historyTable = document.getElementById('historyTable');
+  var deployTotal = 27;
+
+  function addHistoryRow(){
+    deployTotal += 1;
+    deployCountEl.textContent = deployTotal.toLocaleString('en-US');
+    var sha = Math.random().toString(16).slice(2, 9);
+    var row = document.createElement('div');
+    row.className = 'history-row row-enter';
+    row.innerHTML =
+      '<div class="h-status"></div>' +
+      '<div class="h-sha mono">' + sha + '</div>' +
+      '<div class="h-msg">Manual replay — pipeline re-run from dashboard</div>' +
+      '<div class="h-badge">healthy</div>' +
+      '<div class="h-time">just now</div>';
+    historyTable.insertBefore(row, historyTable.firstChild);
+    if(historyTable.children.length > 6){
+      historyTable.removeChild(historyTable.lastChild);
+    }
+  }
+
+  document.getElementById('replayBtn').addEventListener('click', function(){
+    this.disabled = true;
+    var btn = this;
+    runPipeline(function(){
+      addHistoryRow();
+      btn.disabled = false;
+    });
+  });
+
+  // auto-run once on load
+  setTimeout(function(){ runPipeline(); }, 600);
+})();
+</script>
+
+</body>
+</html>
