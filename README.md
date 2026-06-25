@@ -36,8 +36,9 @@ graph TD
 
 ## 🎥 Pipeline Demonstration
 
-*(Add your 30-second GIF here showing the GitHub Actions tab going green!)*  
-`![Demo GIF](./assets/demo.gif)`
+Watch the automated pipeline successfully test, build, scan, and deploy:
+
+![Demo Video](./assets/demo.webp)
 
 ---
 
