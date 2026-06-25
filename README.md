@@ -86,3 +86,26 @@ Watch the automated pipeline successfully test, build, scan, and deploy:
 - **GitHub Actions** - CI/CD Pipeline
 - **GitHub Container Registry** - Image Hosting
 - **Render** - Cloud Hosting & Deployment
+
+---
+
+## 🌍 Centralized Deployment Platform
+This repository serves as a **Centralized Deployment Platform** using GitHub Actions Reusable Workflows. Any other project can instantly onboard to this full CI/CD pipeline (Test → Scan → Build → GHCR Push → Render Deploy → Health Verification) with just 10 lines of code:
+
+```yaml
+name: Deploy
+on:
+  push:
+    branches: [main]
+jobs:
+  pipeline:
+    uses: Shubhamsah27/Automated_Deployment/.github/workflows/deploy-reusable.yml@main
+    with:
+      app_name: my-new-app
+      render_url: https://my-new-app.onrender.com
+    secrets:
+      RENDER_DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+```
+
+**Resume Highlight:**
+> *Refactored CI/CD pipeline into a GitHub Actions reusable workflow — enabling new projects to onboard to the full test/scan/deploy lifecycle in under 5 minutes by calling a single centralized workflow reference.*

@@ -1,0 +1,112 @@
+name: Reusable Deploy Pipeline
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      render_url:
+        required: true
+        type: string
+      node_version:
+        required: false
+        type: string
+        default: '20'
+    secrets:
+      RENDER_DEPLOY_HOOK_URL:
+        required: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node_version }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+  build-scan-push:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Write deployment record
+        run: |
+          echo '[{"sha":"${{ github.sha }}","branch":"${{ github.ref_name }}","timestamp":"${{ github.event.head_commit.timestamp }}","commit_message":"${{ github.event.head_commit.message }}"}]' > deployments.json
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          load: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.app_name }}:latest
+            ghcr.io/${{ github.repository_owner }}/${{ inputs.app_name }}:sha-${{ github.sha }}
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ghcr.io/${{ github.repository_owner }}/${{ inputs.app_name }}:sha-${{ github.sha }}
+          format: 'table'
+          exit-code: '0'
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Docker images
+        run: |
+          docker push ghcr.io/${{ github.repository_owner }}/${{ inputs.app_name }}:latest
+          docker push ghcr.io/${{ github.repository_owner }}/${{ inputs.app_name }}:sha-${{ github.sha }}
+
+  deploy:
+    needs: build-scan-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Render Deploy Hook
+        run: curl -s -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+
+      - name: Verify Live URL Health
+        run: |
+          echo "Waiting 60 seconds for Render to deploy the new container..."
+          sleep 60
+          
+          MAX_RETRIES=12
+          RETRY_INTERVAL=10
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i: Checking health at ${{ inputs.render_url }}/health"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ inputs.render_url }}/health)
+            
+            if [ "$STATUS" -eq 200 ]; then
+              echo "✅ Health check passed! Deployment is live."
+              exit 0
+            fi
+            
+            echo "Health check returned $STATUS. Retrying in $RETRY_INTERVAL seconds..."
+            sleep $RETRY_INTERVAL
+          done
+          
+          echo "❌ Health check failed after $MAX_RETRIES attempts."
+          exit 1
