@@ -9,6 +9,10 @@ on:
       render_url:
         required: true
         type: string
+      health_path:
+        required: false
+        type: string
+        default: '/health'
       node_version:
         required: false
         type: string
@@ -99,8 +103,8 @@ jobs:
           RETRY_INTERVAL=10
           
           for i in $(seq 1 $MAX_RETRIES); do
-            echo "Attempt $i: Checking health at ${{ inputs.render_url }}/health"
-            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ inputs.render_url }}/health)
+            echo "Attempt $i: Checking health at ${{ inputs.render_url }}${{ inputs.health_path }}"
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" ${{ inputs.render_url }}${{ inputs.health_path }})
             
             if [ "$STATUS" -eq 200 ]; then
               echo "✅ Health check passed! Deployment is live."
